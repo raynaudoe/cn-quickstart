@@ -1,42 +1,26 @@
-# Copyright (c) 2026, Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
-# SPDX-License-Identifier: 0BSD
-
 server:
-  forward-headers-strategy: NATIVE
-  # Review Error settings here and set acceptable values for production use.
-  # This configuration is for development purposes.
-  error:
-    include-message: always
-    include-binding-errors: always
-    include-stacktrace: always
-    include-path: always
-    include-exception: true
-  port: ${BACKEND_PORT}
+  port: ${BACKEND_PORT:8080}
 
-logging:
-  level:
-    org.apache.coyote.http11.Http11InputBuffer: DEBUG
-    com.digitalasset.quickstart.oauth.Interceptor: DEBUG
-    org.springframework: ERROR
-    org.springframework.security: INFO
-#    org.springframework.security.web.FilterChainProxy: TRACE
+spring:
+  profiles:
+    default: shared-secret
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DATABASE:application}
+    username: ${POSTGRES_USERNAME:cnadmin}
+    password: ${POSTGRES_PASSWORD:supersafe}
 
 management:
   endpoints:
     web:
       exposure:
-        include: '*'
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
 
 ledger:
-  application-id: ${AUTH_APP_PROVIDER_BACKEND_USER_ID:AppId}
-  registry-base-uri: ${REGISTRY_BASE_URI}
-
-# Access to the application is restricted to authorized end users from organization (e.g. AppProvider, AppUser) registered as tenant.
-# Backend service starts with a single AppProvider internal tenant. Additional tenant registration is available through
-# the /admin/tenant-registrations endpoint.
-application:
-  tenants:
-    AppProvider:
-      tenantId: AppProvider
-      partyId: ${APP_PROVIDER_PARTY}
-      internal: true
+  host: ${LEDGER_HOST:localhost}
+  port: ${LEDGER_PORT:3901}
+  plaintext: ${LEDGER_PLAINTEXT:true}
+  token: ${APP_PROVIDER_BACKEND_USER_TOKEN:}

@@ -1,0 +1,6 @@
+window.APP_CONFIG = {
+  authMode: "${AUTH_MODE}",
+  authUrl: "http://keycloak.localhost:8082",
+  realm: "Application",
+  clientId: "web"
+};

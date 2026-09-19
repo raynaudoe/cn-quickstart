@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Canton workspace</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/config.js"></script>
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <main>
+    <header><span class="mark" aria-hidden="true">C</span><span>CANTON WORKSPACE</span><span class="local">Local</span></header>
+    <section class="intro">
+      <p class="eyebrow">YOUR APPLICATION STARTS HERE</p>
+      <h1>A place to build.</h1>
+      <p class="subtitle">Your application workspace, connected and ready for its next step.</p>
+    </section>
+    <section class="panel" aria-labelledby="session-heading">
+      <div class="panel-heading"><span class="number">01</span><h2 id="session-heading">Your session</h2></div>
+      <p id="session" class="value" aria-live="polite">Connecting...</p>
+      <p id="session-detail" class="detail">Checking sign-in availability.</p>
+      <div class="actions">
+        <button id="login" disabled>Sign in</button>
+        <button id="logout" class="secondary" hidden>Sign out</button>
+      </div>
+      <p id="session-error" class="error" role="alert" hidden></p>
+    </section>
+    <section class="panel" aria-labelledby="connection-heading">
+      <div class="panel-heading"><span class="number">02</span><h2 id="connection-heading">Connection</h2></div>
+      <p id="connection" class="value" aria-live="polite">Checking...</p>
+      <p id="connection-detail" class="detail">Connecting to your workspace.</p>
+      <button id="refresh" class="secondary">Check connection</button>
+      <p id="connection-error" class="error" role="alert" hidden></p>
+    </section>
+    <footer>Application features will live here.</footer>
+  </main>
+</body>
+</html>

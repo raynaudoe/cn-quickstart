@@ -1,0 +1,126 @@
+# Shared LocalNet infrastructure. Application code belongs in the consuming project.
+services:
+  postgres:
+    image: postgres:14
+    environment:
+      POSTGRES_USER: cnadmin
+      POSTGRES_PASSWORD: supersafe
+      POSTGRES_DB: postgres
+      CREATE_DATABASE_01: participant-app-provider
+      CREATE_DATABASE_02: validator-app-provider
+      CREATE_DATABASE_03: participant-app-user
+      CREATE_DATABASE_04: validator-app-user
+      CREATE_DATABASE_05: participant-sv
+      CREATE_DATABASE_06: validator-sv
+      CREATE_DATABASE_07: sequencer
+      CREATE_DATABASE_08: mediator
+      CREATE_DATABASE_09: scan
+      CREATE_DATABASE_10: sv
+      CREATE_DATABASE_11: keycloakdb
+      CREATE_DATABASE_12: participant-application
+    volumes:
+      - localnet-postgres:/var/lib/postgresql/data
+      - ../quickstart/docker/modules/localnet/docker/postgres/postgres-entrypoint.sh:/postgres-entrypoint.sh:ro
+    entrypoint: /postgres-entrypoint.sh
+    user: postgres
+    command: [postgres, -c, max_connections=1000]
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U cnadmin -d postgres']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.1.0
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_DB: postgres
+      KC_DB_USERNAME: cnadmin
+      KC_DB_PASSWORD: supersafe
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloakdb
+    volumes:
+      - ../quickstart/docker/modules/keycloak/conf/data/AppProvider-realm.json:/opt/keycloak/data/import/AppProvider-realm.json:ro
+      - ../quickstart/docker/modules/keycloak/conf/data/AppProvider-users-0.json:/opt/keycloak/data/import/AppProvider-users-0.json:ro
+      - ../quickstart/docker/modules/keycloak/conf/data/AppUser-realm.json:/opt/keycloak/data/import/AppUser-realm.json:ro
+      - ../quickstart/docker/modules/keycloak/conf/data/AppUser-users-0.json:/opt/keycloak/data/import/AppUser-users-0.json:ro
+    command: [start-dev, --import-realm, '--http-port=8082', '--health-enabled=true', '--hostname-strict=false']
+    healthcheck:
+      test: [CMD-SHELL, "exec 3<>/dev/tcp/localhost/9000 && printf 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 && cat <&3 | grep -q '200 OK'"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+    depends_on:
+      postgres: {condition: service_healthy}
+  canton:
+    image: ghcr.io/digital-asset/decentralized-canton-sync/docker/canton:0.6.11
+    env_file: localnet.env
+    environment:
+      LOG_LEVEL_STDOUT: INFO
+      LOG_LEVEL_CANTON: INFO
+    logging:
+      driver: json-file
+      options: {max-size: 50m, max-file: '3'}
+    volumes:
+      - ./canton.conf:/app/app.conf:ro
+      - ../quickstart/docker/modules/localnet/conf/canton/app.conf:/app/upstream.conf:ro
+      - ../quickstart/docker/modules/localnet/conf/canton/app-provider:/app/app-provider/on:ro
+      - ../quickstart/docker/modules/localnet/conf/canton/app-user:/app/app-user/on:ro
+      - ../quickstart/docker/modules/localnet/conf/canton/sv:/app/sv/on:ro
+      - ../quickstart/docker/modules/keycloak/conf/canton/app-provider.conf:/app/app-provider/on/app-auth.conf:ro
+      - ../quickstart/docker/modules/keycloak/conf/canton/app-user.conf:/app/app-user/on/app-auth.conf:ro
+      - ../quickstart/docker/modules/localnet/docker/canton/health-check.sh:/app/health-check.sh:ro
+    healthcheck:
+      test: [CMD, bash, /app/health-check.sh]
+      interval: 10s
+      timeout: 30s
+      retries: 90
+    depends_on:
+      keycloak: {condition: service_healthy}
+    restart: unless-stopped
+  splice:
+    image: ghcr.io/digital-asset/decentralized-canton-sync/docker/splice-app:0.6.11
+    env_file: localnet.env
+    environment:
+      LOG_LEVEL_STDOUT: INFO
+      LOG_LEVEL_CANTON: INFO
+    logging:
+      driver: json-file
+      options: {max-size: 50m, max-file: '3'}
+    volumes:
+      - ../quickstart/docker/modules/localnet/conf/splice/app.conf:/app/app.conf:ro
+      - ../quickstart/docker/modules/localnet/conf/splice/app-provider:/app/app-provider/on:ro
+      - ../quickstart/docker/modules/localnet/conf/splice/app-user:/app/app-user/on:ro
+      - ../quickstart/docker/modules/localnet/conf/splice/sv:/app/sv/on:ro
+      - ../quickstart/docker/modules/keycloak/conf/splice/app-provider.conf:/app/app-provider/on/app-auth.conf:ro
+      - ../quickstart/docker/modules/keycloak/conf/splice/app-user.conf:/app/app-user/on/app-auth.conf:ro
+      - ../quickstart/docker/modules/localnet/docker/splice/health-check.sh:/app/health-check.sh:ro
+      - domain-upgrade-dump:/domain-upgrade-dump
+    healthcheck:
+      test: [CMD, bash, /app/health-check.sh]
+      interval: 10s
+      timeout: 30s
+      retries: 120
+    depends_on:
+      canton: {condition: service_healthy}
+    restart: unless-stopped
+  application-participant:
+    image: ghcr.io/digital-asset/decentralized-canton-sync/docker/canton:0.6.11
+    environment:
+      LOG_LEVEL_STDOUT: INFO
+      LOG_LEVEL_CANTON: INFO
+    volumes:
+      - ./participant.conf:/app/app.conf:ro
+      - ./participant-bootstrap.sc:/app/bootstrap.sc:ro
+      - ./participant-start.sh:/app/pre-bootstrap.sh:ro
+    healthcheck:
+      test: [CMD-SHELL, 'test -f /tmp/participant-ready && grpc-health-probe -addr=localhost:5061']
+      interval: 5s
+      timeout: 5s
+      retries: 60
+    depends_on:
+      splice: {condition: service_healthy}
+    restart: unless-stopped
+
+volumes:
+  localnet-postgres:
+  domain-upgrade-dump:

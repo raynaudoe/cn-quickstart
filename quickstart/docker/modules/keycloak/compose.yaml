@@ -31,8 +31,7 @@ services:
     depends_on:
       keycloak:
         condition: service_healthy
-    # Workaround limitation of using localhost subdomains in QS. It is used only in backend-service
-    # to configure frontend facing client otherwise the configuration would be quite difficult.
+    # Preserve the issuer hostname used by the local browser-facing interfaces.
     networks:
       default:
         aliases:
@@ -43,6 +42,8 @@ services:
   keycloak:
     image: "${KEYCLOAK_IMAGE}:${KEYCLOAK_VERSION}"
     container_name: keycloak
+    environment:
+      APPLICATION_ORIGIN: http://localhost:${FRONTEND_PORT}
     volumes:
       - ${MODULES_DIR}/keycloak/conf/data:/opt/keycloak/data/import
     env_file:

@@ -37,23 +37,6 @@ get_admin_token() {
     -d 'scope=openid' | jq -r .access_token
 }
 
-get_user_token() {
-  local user=$1
-  local password=$2
-  local clientId=$3
-  local tokenUrl=$4
-
-  echo "get_user_token $user $clientId $tokenUrl" >&2
-
-  curl -f -s -S "${tokenUrl}" \
-    -H 'Content-Type: application/x-www-form-urlencoded' \
-    -d 'client_id='${clientId} \
-    -d 'username='${user} \
-    -d 'password='${password} \
-    -d 'grant_type=password' \
-    -d 'scope=openid' | jq -r .access_token
-}
-
 create_user() {
   local token=$1
   local userId=$2
@@ -62,9 +45,17 @@ create_user() {
   local participant=$5
   echo "create_user $userId $userName $party $participant" >&2
 
+  local code
   code=$(curl_status_code "http://$participant/v2/users/$userId" "$token" "application/json")
-  if  [ "$code" == "404" ]; then
-    curl_check "http://$participant/v2/users" "$token" "application/json" \
+  case "$code" in
+    200) return 0 ;;
+    404) ;; # Continue with user creation.
+    *)
+      echo "Cannot check ledger user $userId: HTTP $code" >&2
+      return 1
+      ;;
+  esac
+  curl_check "http://$participant/v2/users" "$token" "application/json" \
       --data-raw '{
         "user" : {
             "id" : "'$userId'",
@@ -81,8 +72,6 @@ create_user() {
           "rights": [
           ]
       }' | jq -r .user.id
-  fi
-
 }
 
 delete_user() {
@@ -171,6 +160,7 @@ update_user() {
 upload_dars() {
   local token=$1
   local participant=$2
+  [ -d /canton/dars ] || return 0
   find /canton/dars -type f -name "*.dar" | while read -r file; do
     echo "uploadDar $file $participant" >&2
     curl_check "http://$participant/v2/packages" "$token" "application/octet-stream" \
@@ -185,13 +175,6 @@ get_user_party() {
   local participant=$3
   echo "get_user_party $user $participant" >&2
   curl_check "http://$participant/v2/users/$user" "$token" "application/json" | jq -r .user.primaryParty
-}
-
-get_dso_party_id() {
-  local token=$1
-  local validator=$2
-  echo "get_dso_party_id $validator" >&2
-  curl_check "http://$validator/api/validator/v0/scan-proxy/dso-party-id" "$token" "application/json" | jq -r .dso_party_id
 }
 
 curl_check() {
@@ -243,54 +226,4 @@ curl_status_code() {
       )
 
   echo "$response" | tail -n1 | tr -d '\r'
-}
-
-# Following functions are not used atm in QS but customer may need them when start building on top of QS
-# to support their use-cases. E.g. need to create additional (wallet) users and allocate additional parties.
-#
-allocate_party() {
-  local token=$1
-  local partyIdHint=$2
-  local participant=$3
-
-  echo "allocate_party $partyIdHint $participant" >&2
-
-  namespace=$(get_participant_namespace "$token" "$participant")
-
-  party=$(curl_check "http://$participant/v2/parties/party?parties=$partyIdHint::$namespace" "$token" "application/json" |
-    jq -r '.partyDetails[0].party')
-
-  if [ -n "$party" ] && [ "$party" != "null" ]; then
-    echo "party exists $party" >&2
-    echo $party
-    return
-  fi
-
-  curl_check "http://$participant/v2/parties" "$token" "application/json" \
-    --data-raw '{
-      "partyIdHint": "'$partyIdHint'",
-      "displayName" : "'$partyIdHint'",
-      "identityProviderId": ""
-    }' | jq -r .partyDetails.party
-}
-
-get_participant_namespace() {
-  local token=$1
-  local participant=$2
-  echo "get_participant_namespace $participant" >&2
-  curl_check "http://$participant/v2/parties/participant-id" "$token" "application/json" |
-    jq -r .participantId | sed 's/^participant:://'
-}
-
-onboard_wallet_user() {
-  local token=$1
-  local user=$2
-  local party=$3
-  local validator=$4
-  echo "onboard_wallet_user $user $party $validator $token" >&2
-  curl_check "http://$validator/api/validator/v0/admin/users" "$token" "application/json" \
-    --data-raw '{
-      "party_id": "'$party'",
-      "name":"'$user'"
-    }'
 }

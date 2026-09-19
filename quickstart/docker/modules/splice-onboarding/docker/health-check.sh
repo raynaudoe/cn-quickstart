@@ -44,12 +44,10 @@ if [ ! -f /tmp/all-done ]; then
 
     if [ ! -f "$done_file" ]; then
       echo "executing $script_name" >&2
-      chmod +x "$ONBOARDING_SCRIPTS_DIR/$script"
-      "$ONBOARDING_SCRIPTS_DIR/$script"
+      bash "$ONBOARDING_SCRIPTS_DIR/$script"
       echo "$script_name done" >&2
       touch "$done_file"
     fi
   done
   touch /tmp/all-done
 fi
-
