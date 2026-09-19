@@ -148,3 +148,8 @@ quickstart/
 The application has no Daml build, DAR artifacts, OpenAPI code generation, or
 sample domain dependencies. Infrastructure versions remain pinned to the
 upstream baseline. See `LICENSE`, `terms.md`, and source-file license headers.
+
+## Shared infrastructure releases
+
+The [LocalNet infrastructure bundle](infra/README.md) lets applications consume
+versioned Compose configuration without cloning this repository.
