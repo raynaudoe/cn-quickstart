@@ -9,4 +9,4 @@ for script in /onboarding/backend-service/on/*.sh; do
   fi
 done
 
-exec java -jar /app/backend.jar
+exec node /app/dist/main.js

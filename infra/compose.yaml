@@ -112,6 +112,8 @@ services:
       - ./participant.conf:/app/app.conf:ro
       - ./participant-bootstrap.sc:/app/bootstrap.sc:ro
       - ./participant-start.sh:/app/pre-bootstrap.sh:ro
+    # JSON Ledger API v2 for applications on this network; no host port is published.
+    expose: ['7575']
     healthcheck:
       test: [CMD-SHELL, 'test -f /tmp/participant-ready && grpc-health-probe -addr=localhost:5061']
       interval: 5s

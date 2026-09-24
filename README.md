@@ -4,15 +4,16 @@ A minimal application starting point built on
 [Digital Asset CN Quickstart](https://github.com/digital-asset/cn-quickstart),
 based on commit `8984e430bda8263dc726e70d157780767fe9b50d`.
 
-The repository contains a browser shell, a Java 21 / Spring Boot backend,
+The repository contains a browser shell, a bare Node.js 24 / TypeScript backend,
 Keycloak login, PostgreSQL, and Canton LocalNet. Business contracts, endpoints,
 schemas, and DEX features have no implementation here.
+TypeScript is the default backend setup; you can replace it with any language or runtime.
 
 ## Run everything with Docker
 
 Requirements: Docker with Compose 2.27+, Make, and at least 8 GB of memory
-allocated to Docker. Docker builds both the backend and frontend; Java,
-Gradle, and Node are not required on the host for this workflow.
+allocated to Docker. Docker builds both the backend and frontend; Node is not
+required on the host for this workflow.
 
 From this directory:
 
@@ -28,9 +29,9 @@ Open **http://localhost:3001** and sign in with the local development account:
 - Username: `developer`
 - Password: `developer`
 
-The browser shell supports sign-in, sign-out, and a connection check.
-After sign-in, the check sends a JWT to the backend and checks the application
-database. It does not submit Canton transactions.
+The existing browser shell and local login are preserved. Its connection check
+calls `/api/actuator/health`, which the empty backend does not implement and
+returns 404. Add application endpoints when building your backend.
 
 ```sh
 make status
@@ -64,7 +65,6 @@ All files selected by `quickstart/Makefile` are merged into one Compose project.
 | Local URL | Service |
 | --- | --- |
 | `http://localhost:3001` | Application browser shell |
-| `http://localhost:3001/api/actuator/health` | Backend and PostgreSQL health |
 | `http://keycloak.localhost:8082` | Keycloak; admin console uses `admin` / `admin` locally |
 | `http://wallet.localhost:3000` | Local AppProvider infrastructure wallet |
 | `http://scan.localhost:4000` | Local Scan |
@@ -86,26 +86,25 @@ existing users or client configuration.
 | Area | Entry point | Current behavior |
 | --- | --- | --- |
 | Browser | `quickstart/frontend/src/app.js` | Minimal login and connection screen, served by Nginx. |
-| Startup | `quickstart/backend/src/main/java/com/digitalasset/quickstart/App.java` | Starts Spring Boot without business controllers. |
-| HTTP security | `quickstart/backend/src/main/java/com/digitalasset/quickstart/security/SecurityConfiguration.java` | Stateless JWT authentication. Health is public. Other routes are denied in shared-secret mode. |
-| Database | `quickstart/backend/src/main/resources/application.yml` | PostgreSQL JDBC driver, Hikari pool, and Spring JDBC against an empty `application` database. |
-| Canton | `quickstart/backend/src/main/java/com/digitalasset/quickstart/ledger/LedgerConfiguration.java` | A managed gRPC channel, token provider, and per-call credentials. |
+| Backend | `quickstart/backend/src/main.ts` | An HTTP listener with no routes or application logic. All requests return an empty 404. SIGTERM stops it gracefully. |
+| Database | `quickstart/compose.yaml` | An empty `application` database and `POSTGRES_*` configuration are available. The backend has no database driver or queries. |
 | Containers | `quickstart/compose.yaml`, `quickstart/backend/Dockerfile`, `quickstart/frontend/Dockerfile` | Image builds, private service networking, and readiness checks. |
 
 Application users authenticate against the `Application` realm. The browser
 uses the official [Keycloak JavaScript adapter](https://www.keycloak.org/securing-apps/javascript-adapter)
-with Authorization Code and PKCE. Tokens stay in browser memory. The backend
-validates the Application issuer and the `backend` audience.
+with Authorization Code and PKCE. Tokens stay in browser memory. The bare
+backend does not validate them; an application adds validation of the
+Application issuer and the `backend` audience.
 
 The existing `AppProvider` and `AppUser` realms serve infrastructure identities.
-Outbound backend-to-Canton authentication still uses the `app-provider-backend`
+LocalNet onboarding creates the Ledger API user of the `app-provider-backend`
 service account. Application login does not grant party rights.
 
-Future Canton clients can inject `ManagedChannel` and `CallCredentials` and
-attach credentials with `stub.withCallCredentials(credentials)`. There are no
-generated contract bindings or Ledger API stubs yet. The backend's Ledger API
-user starts without `actAs` or `readAs` rights; workflows must grant their
-required authority explicitly.
+The participants serve the JSON Ledger API v2, which an application backend can
+call over HTTP with the service-account token. There are no generated contract
+bindings or Ledger API clients yet. The backend's Ledger API user starts without
+`actAs` or `readAs` rights; workflows must grant their required authority
+explicitly.
 
 External-wallet onboarding, external-party hosting, signing, application roles,
 batching, and settlement remain application responsibilities. Wallet private
@@ -113,7 +112,7 @@ keys stay outside this scaffold.
 
 ## Development and checks
 
-`make build` builds the backend locally and requires JDK 21.
+`make build` builds the backend locally and requires Node 24.
 `make check` additionally requires Python 3 and jq. It tests bootstrap error
 handling and configuration validation, then checks shell syntax and all four
 Compose combinations: both authentication modes, with PQS on and off. These
@@ -123,15 +122,25 @@ The frontend Docker build runs the login and connection regression tests.
 With Node 22 installed locally, run them with `npm --prefix quickstart/frontend test`.
 
 `make canton-console` opens the participant console.
-`make clean` removes local Gradle build outputs.
+`make clean` removes the local backend build output.
 
-Health checks cover the backend process and PostgreSQL. Constructing the
-Canton channel does not perform a Ledger API call, so backend health is not
-evidence of ledger connectivity.
+The backend container health check only verifies its TCP listener. PostgreSQL
+has its own infrastructure health check. The backend has no database or ledger
+connection and no runtime package dependencies.
+
+To develop the backend locally:
+
+```sh
+cd quickstart/backend
+npm ci
+npm run dev
+```
+
+It listens on port 8080 by default; set `BACKEND_PORT` to override it.
 
 ```text
 quickstart/
-  backend/              Spring Boot entry point, connection config, Dockerfile
+  backend/              Empty HTTP listener, TypeScript configuration, Dockerfile
   frontend/             Browser shell, login adapter, reverse proxy, Dockerfile
   docker/backend-service/
                         Backend startup, health, Ledger API identity provisioning

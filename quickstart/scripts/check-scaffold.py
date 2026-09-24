@@ -27,16 +27,12 @@ for mode in ("shared-secret", "oauth2"):
         assert "build" in backend, "Backend must build inside Docker"
         assert not backend.get("ports"), "The API is exposed through the frontend proxy"
         assert services["frontend"]["depends_on"]["backend-service"]["condition"] == "service_healthy"
-        assert env["SPRING_PROFILES_ACTIVE"] == mode
+        for name in ("BACKEND_PORT", "POSTGRES_HOST", "POSTGRES_PORT", "POSTGRES_USERNAME", "POSTGRES_PASSWORD"):
+            assert env[name], f"Missing backend configuration: {name}"
         assert env["POSTGRES_DATABASE"] == services["postgres"]["environment"]["CREATE_DATABASE_application"]
         assert not any(name.startswith("pqs") for name in backend["depends_on"])
         assert ("keycloak" in services) == (mode == "oauth2")
         assert ("pqs-app-provider" in services) == (pqs == "true")
-        if mode == "oauth2":
-            for name in ("AUTH_APPLICATION_ISSUER_URL", "AUTH_APPLICATION_JWK_SET_URL",
-                         "AUTH_APP_PROVIDER_TOKEN_URL", "AUTH_APP_PROVIDER_BACKEND_CLIENT_ID",
-                         "AUTH_APP_PROVIDER_BACKEND_SECRET"):
-                assert env[name], f"Missing backend OAuth2 configuration: {name}"
         for name, service in services.items():
             if "build" in service:
                 build = service["build"]

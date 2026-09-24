@@ -22,6 +22,6 @@ export APP_PROVIDER_BACKEND_USER_TOKEN=${token}
 EOF
 else
   share_file "backend-service/on/backend-service.sh" <<'EOF'
-# OAuth2 client credentials are supplied through the container environment.
+# OAuth2 mode shares no backend token or client credentials.
 EOF
 fi

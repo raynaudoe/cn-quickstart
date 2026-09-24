@@ -5,11 +5,8 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-      args:
-        JAVA_VERSION: ${JAVA_VERSION}
     env_file:
       - ./docker/backend-service/env/app.env
-      - ./docker/backend-service/onboarding/env/${AUTH_MODE}.env
     volumes:
       - onboarding:/onboarding:ro
     expose:

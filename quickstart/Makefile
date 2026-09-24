@@ -54,7 +54,7 @@ COMPOSE = docker compose $(COMPOSE_FILES) $(COMPOSE_ENV) $(COMPOSE_PROFILES)
 
 help:
 	@echo "setup           Create local overrides if missing"
-	@echo "build           Build the empty Spring Boot application"
+	@echo "build           Install and build the bare Node.js backend"
 	@echo "check           Build and validate all four Compose configurations"
 	@echo "docker-run      Build inside Docker and start the complete application"
 	@echo "docker-stop     Stop the stack, preserving database volumes"
@@ -64,15 +64,17 @@ help:
 	@echo "logs            Show the latest container logs"
 	@echo "canton-console  Open the Canton console"
 	@echo "compose-config  Render the resolved Compose configuration"
-	@echo "clean           Remove Gradle build outputs"
+	@echo "clean           Remove backend build outputs"
 
 setup:
 	@test -f .env.local || cp .env.local.example .env.local
 
 build:
-	./gradlew :backend:build --console=plain
+	npm --prefix backend ci --no-audit --no-fund
+	npm --prefix backend run build
 
 check: build
+	npm --prefix backend run typecheck
 	python3 scripts/test-scaffold.py
 	python3 scripts/check-scaffold.py
 
@@ -100,4 +102,4 @@ compose-config:
 	@$(COMPOSE) config $(CONFIG_ARGS)
 
 clean:
-	./gradlew clean --console=plain
+	rm -rf backend/dist

@@ -4,6 +4,9 @@
 participant for a consuming application's development environment. The configuration
 uses public development credentials. It is intended for local development.
 
+The application participant serves the JSON Ledger API v2 on port 7575 of the Compose
+network, with the same JWT authorization as its gRPC ledger API. No host port is published.
+
 The Canton and Splice services use INFO logging with three rotated 50 MB log files.
 The SV configuration pauses `ReconcileSequencingParametersTrigger` to avoid the
 LocalNet busy loop in the pinned Splice version.
@@ -25,7 +28,7 @@ developer-specific environment overrides.
 From the repository root, with Git, Python 3.12+, and Docker Compose installed:
 
 ```sh
-make package-localnet VERSION=v0.1.0
+make package-localnet VERSION=v0.2.0
 ```
 
 The packager reads committed files at `HEAD`, discovers the Compose bind mounts,
